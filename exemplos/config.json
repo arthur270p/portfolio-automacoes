@@ -1,0 +1,18 @@
+{
+  "colunas_obrigatorias": [
+    "nome",
+    "email",
+    "data",
+    "valor"
+  ],
+  "chaves_duplicidade": [
+    "email",
+    "data"
+  ],
+  "tipos": {
+    "nome": "texto",
+    "email": "texto",
+    "data": "data_br",
+    "valor": "decimal_br"
+  }
+}
