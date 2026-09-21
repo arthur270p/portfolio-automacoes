@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # A ferramenta e usada no Windows e avaliada em Linux. As duas pontas
+        # da faixa declarada em `requires-python` entram porque e onde a
+        # incompatibilidade aparece.
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Instalar
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+
+      - name: Lint
+        run: python -m ruff check .
+
+      - name: Testes
+        run: python -m pytest -q
+
+      - name: A demonstracao do README roda de verdade
+        # Um portfolio que documenta uma demonstracao quebrada e pior que um
+        # sem demonstracao nenhuma.
+        run: |
+          python -m automacao_planilhas processar \
+            --entrada exemplos/entrada \
+            --config exemplos/config.json \
+            --saida exemplos/saida/relatorio.xlsx \
+            --sobrescrever
+        shell: bash

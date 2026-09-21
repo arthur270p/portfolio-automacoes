@@ -1,0 +1,14 @@
+# O repositorio e editado no Windows e executado tambem em Linux e macOS.
+# Sem isto, um script `.sh` entregue com CRLF falha no bash com um erro
+# ("\r: command not found") que nao aponta para a causa.
+* text=auto
+
+*.ps1  text eol=crlf
+*.sh   text eol=lf
+*.py   text eol=lf
+*.csv  text eol=lf
+*.md   text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+
+*.xlsx binary
