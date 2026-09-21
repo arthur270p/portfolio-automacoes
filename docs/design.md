@@ -1,5 +1,24 @@
 # Design: automação local de planilhas e CSV
 
+> Documento escrito **antes** da implementação, preservado como estava. O tempo
+> futuro no texto é proposital: ele registra o que foi decidido antes de existir
+> código, não o que o produto virou.
+>
+> O que mudou no caminho:
+>
+> - **Apelidos de coluna** não estavam previstos. Sem eles, um arquivo que
+>   escreve `E-mail do Cliente` em vez de `email` era recusado inteiro — o que
+>   inviabilizava o caso de uso real que motivou o projeto.
+> - **A leitura de CSV não usa `pandas.read_csv`.** Ele converte `NA`, `NULL` e
+>   `N/A` em valor ausente e não reporta a linha física verdadeira; os dois
+>   corrompem dado em silêncio. A leitura passou a usar o módulo `csv` da
+>   biblioteca padrão.
+> - **A demonstração ganhou versão para Linux e macOS**, além do PowerShell.
+> - **Licença MIT, integração contínua e lint** entraram depois, para o
+>   repositório poder ser avaliado e adotado por terceiros.
+> - A suíte terminou com **77 testes**, verificados por mutação.
+
+
 Data: 20 de setembro de 2026
 
 ## Objetivo
@@ -150,7 +169,7 @@ Cada registro de entrada aparecerá no máximo uma vez na aba `erros`. Quando um
 
 ```text
 portfolio-automacoes/
-├── docs/superpowers/specs/
+├── docs/
 ├── src/automacao_planilhas/
 │   ├── __init__.py
 │   ├── __main__.py

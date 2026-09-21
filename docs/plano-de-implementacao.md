@@ -1,6 +1,6 @@
 # Spreadsheet Automation Portfolio Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Plano de construcao escrito antes da implementacao, mantido como registro do caminho percorrido. Quem so quer entender as decisoes deve ler [design.md](design.md); quem quer entender o produto, o [README](../README.md).
 
 **Goal:** Build a local Python command-line tool that consolidates CSV/XLSX files, validates configured business rules, and generates an auditable Excel report for a freelance portfolio demonstration.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12, pandas 3.x, openpyxl 3.1+, standard-library `argparse`, `json`, `unittest`, and PowerShell for the Windows demo runner.
 
-**Spec:** `docs/superpowers/specs/2026-09-20-automacao-planilhas-design.md`
+**Spec:** [`docs/design.md`](design.md)
 
 ## Global Constraints
 

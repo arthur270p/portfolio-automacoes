@@ -27,6 +27,8 @@ Se for olhar o código, três lugares mostram como as decisões foram tomadas:
 | [`report.py`](src/automacao_planilhas/report.py) | por que texto iniciado por `=` é neutralizado, e por que só o `=` |
 | [`cli.py`](src/automacao_planilhas/cli.py) | como o relatório anterior sobrevive a uma falha no meio da escrita |
 
+O documento de projeto está em [`docs/design.md`](docs/design.md): objetivo, alternativas descartadas e por quê, e — no topo — o que mudou entre o que foi planejado e o que foi construído.
+
 ## O problema
 
 Todo mês chega a mesma tarefa: abrir seis planilhas, empilhar no Excel, procurar campo vazio, caçar lançamento repetido, arrumar data e valor que vieram em formato diferente. Leva horas, e o erro só aparece depois — quando alguém pergunta por que o total não fecha.
