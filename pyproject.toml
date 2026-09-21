@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "automacao-planilhas"
+version = "0.1.0"
+description = "Consolidação e validação local de arquivos CSV e Excel."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "pandas>=3.0,<4",
+  "openpyxl>=3.1,<4",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
