@@ -36,24 +36,57 @@ def build_summary(batch: ReadBatch, validation: ValidationResult) -> pd.DataFram
     ferramenta. Quem leu o resumo precisa conseguir dizer qual arquivo ficou
     de fora e por quê.
     """
+    metrics: tuple[tuple[str, object, str], ...] = (
+        (
+            "arquivos_encontrados",
+            batch.files_found,
+            "Arquivos CSV ou XLSX na pasta de entrada.",
+        ),
+        (
+            "arquivos_processados",
+            batch.files_processed,
+            "Arquivos aceitos e consolidados.",
+        ),
+        (
+            "registros_lidos",
+            len(batch.data),
+            "Linhas lidas das origens aceitas.",
+        ),
+        (
+            "registros_validos",
+            len(validation.clean_data),
+            "Linhas sem nenhum problema.",
+        ),
+        (
+            "registros_invalidos",
+            len(validation.error_data),
+            "Linhas com ao menos um problema.",
+        ),
+        (
+            "duplicidades",
+            validation.duplicate_count,
+            "Repetições da chave; a primeira foi mantida.",
+        ),
+        (
+            "problemas_encontrados",
+            validation.problem_count,
+            "Total de problemas, somando os de uma mesma linha.",
+        ),
+    )
     rows: list[dict[str, object]] = [
         {"categoria": "metrica", "item": item, "valor": valor, "detalhe": detalhe}
-        for item, valor, detalhe in (
-            ("arquivos_encontrados", batch.files_found, "Arquivos CSV ou XLSX na pasta de entrada."),
-            ("arquivos_processados", batch.files_processed, "Arquivos aceitos e consolidados."),
-            ("registros_lidos", int(len(batch.data)), "Linhas lidas das origens aceitas."),
-            ("registros_validos", int(len(validation.clean_data)), "Linhas sem nenhum problema."),
-            ("registros_invalidos", int(len(validation.error_data)), "Linhas com ao menos um problema."),
-            ("duplicidades", validation.duplicate_count, "Repetições da chave; a primeira foi mantida."),
-            ("problemas_encontrados", validation.problem_count, "Total de problemas, somando os de uma mesma linha."),
-        )
+        for item, valor, detalhe in metrics
     ]
 
     for issue in batch.source_issues:
         rows.append(
             {
                 "categoria": "origem",
-                "item": f"{issue.file_name} ({issue.sheet_name})" if issue.sheet_name else issue.file_name,
+                "item": (
+                    f"{issue.file_name} ({issue.sheet_name})"
+                    if issue.sheet_name
+                    else issue.file_name
+                ),
                 "valor": issue.level,
                 "detalhe": f"{issue.code}: {issue.detail}",
             }
@@ -103,7 +136,11 @@ def _finish_sheet(sheet) -> None:
 
     for index in range(1, sheet.max_column + 1):
         longest = max(
-            (len(str(cell.value)) for cell in sheet[get_column_letter(index)] if cell.value is not None),
+            (
+                len(str(cell.value))
+                for cell in sheet[get_column_letter(index)]
+                if cell.value is not None
+            ),
             default=0,
         )
         sheet.column_dimensions[get_column_letter(index)].width = min(

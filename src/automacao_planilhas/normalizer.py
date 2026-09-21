@@ -1,9 +1,9 @@
 import re
 import unicodedata
+from collections.abc import Callable
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from numbers import Integral, Real
-from typing import Callable
 
 import pandas as pd
 
@@ -151,7 +151,10 @@ def convert_configured_types(
                     RowProblem(
                         row_index=int(index),
                         code=error_code,
-                        detail=f"Valor incompatível com {column_type} na coluna {column!r}.",
+                        detail=(
+                            f"Valor incompatível com {column_type} "
+                            f"na coluna {column!r}."
+                        ),
                     )
                 )
 

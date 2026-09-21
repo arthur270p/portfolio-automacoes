@@ -1,5 +1,6 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Literal, Mapping
+from typing import Literal
 
 import pandas as pd
 

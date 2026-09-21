@@ -66,7 +66,7 @@ class SummaryTests(unittest.TestCase):
                 "problemas_encontrados",
             ],
         )
-        metrics = dict(zip(summary["item"], summary["valor"]))
+        metrics = dict(zip(summary["item"], summary["valor"], strict=True))
         self.assertEqual(metrics["arquivos_encontrados"], 2)
         self.assertEqual(metrics["arquivos_processados"], 1)
         self.assertEqual(metrics["registros_lidos"], 2)
@@ -79,15 +79,25 @@ class SummaryTests(unittest.TestCase):
         # Consolidar doze arquivos e receber nove sem perceber e o pesadelo: o
         # resumo precisa dizer QUAIS ficaram de fora, nao so quantos.
         issues = (
-            SourceIssue("legado.csv", "CSV", "ENCODING_CP1252", "Lido como CP1252.", "aviso"),
-            SourceIssue("quebrado.xlsx", "Plan1", "COLUNA_OBRIGATORIA_AUSENTE", "Faltou email.", "erro"),
+            SourceIssue(
+                "legado.csv", "CSV", "ENCODING_CP1252", "Lido como CP1252.", "aviso"
+            ),
+            SourceIssue(
+                "quebrado.xlsx",
+                "Plan1",
+                "COLUNA_OBRIGATORIA_AUSENTE",
+                "Faltou email.",
+                "erro",
+            ),
         )
 
         summary = build_summary(sample_batch(issues), sample_validation())
         origins = summary.loc[summary["categoria"] == "origem"]
 
         self.assertEqual(len(origins), 2)
-        joined = " ".join(origins["item"] + " " + origins["valor"] + " " + origins["detalhe"])
+        joined = " ".join(
+            origins["item"] + " " + origins["valor"] + " " + origins["detalhe"]
+        )
         self.assertIn("legado.csv", joined)
         self.assertIn("quebrado.xlsx", joined)
         self.assertIn("ENCODING_CP1252", joined)
@@ -134,7 +144,9 @@ class ReportWritingTests(unittest.TestCase):
         with TemporaryDirectory() as temporary:
             output = self.write(
                 Path(temporary),
-                pd.DataFrame({"data": [date(2026, 9, 10)], "valor": [Decimal("1234.56")]}),
+                pd.DataFrame(
+                    {"data": [date(2026, 9, 10)], "valor": [Decimal("1234.56")]}
+                ),
             )
 
             sheet, _ = load_sheet(output, "dados_limpos")

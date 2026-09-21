@@ -1,17 +1,55 @@
 [build-system]
-requires = ["setuptools>=75"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "automacao-planilhas"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Consolidação e validação local de arquivos CSV e Excel."
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "arthur270p", email = "vanderleidallacosta68@gmail.com" }]
+keywords = ["csv", "excel", "planilha", "validacao", "consolidacao"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "Natural Language :: Portuguese (Brazilian)",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Office/Business :: Financial :: Spreadsheet",
+]
 dependencies = [
   "pandas>=3.0,<4",
   "openpyxl>=3.1,<4",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "ruff>=0.6",
+]
+
+[project.scripts]
+automacao-planilhas = "automacao_planilhas.cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "automacao_planilhas.__version__"}
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 90
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "SIM", "UP", "RUF", "BLE"]

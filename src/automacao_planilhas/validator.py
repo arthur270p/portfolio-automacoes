@@ -6,7 +6,7 @@ aba de erros e faz a pessoa conferir o mesmo registro várias vezes sem saber
 que é o mesmo.
 """
 
-from typing import Iterable
+from collections.abc import Iterable
 
 import pandas as pd
 

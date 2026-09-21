@@ -126,7 +126,7 @@ class SourceReaderTests(unittest.TestCase):
     def test_records_unreadable_source_and_continues(self):
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / "quebrado.xlsx").write_bytes("não é um arquivo Excel".encode("utf-8"))
+            (root / "quebrado.xlsx").write_bytes("não é um arquivo Excel".encode())
             (root / "valido.csv").write_text(
                 "Nome;E-mail\nAna;ana@example.com\n", encoding="utf-8"
             )

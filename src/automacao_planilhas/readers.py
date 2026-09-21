@@ -34,7 +34,9 @@ def discover_sources(input_dir: Path) -> tuple[Path, ...]:
     return tuple(sorted(sources, key=lambda path: (path.name.casefold(), path.name)))
 
 
-def _read_csv(path: Path) -> tuple[pd.DataFrame, tuple[SourceIssue, ...], tuple[int, ...]]:
+def _read_csv(
+    path: Path,
+) -> tuple[pd.DataFrame, tuple[SourceIssue, ...], tuple[int, ...]]:
     """Lê um CSV preservando o texto original e a linha física de cada registro.
 
     A leitura usa o módulo `csv` da biblioteca padrão, e não `pandas.read_csv`,

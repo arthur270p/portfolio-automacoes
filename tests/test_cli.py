@@ -1,11 +1,14 @@
+import io
 import json
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
 import openpyxl
 
+from automacao_planilhas import __version__
 from automacao_planilhas.cli import main
 
 VALID_CSV = "nome;email;data;valor\nAna;ana@example.com;10/09/2026;12,50\n"
@@ -184,6 +187,33 @@ class CliTests(unittest.TestCase):
     def test_unknown_command_is_rejected(self):
         with self.assertRaises(SystemExit):
             main(["inexistente"])
+
+
+class VersionTests(unittest.TestCase):
+    def test_reports_the_version_and_exits_cleanly(self):
+        # Quem automatiza precisa saber qual versao esta rodando antes de
+        # culpar os proprios dados por uma mudanca de comportamento.
+        buffer = io.StringIO()
+        with redirect_stdout(buffer), self.assertRaises(SystemExit) as raised:
+            main(["--versao"])
+
+        self.assertEqual(raised.exception.code, 0)
+        self.assertIn(__version__, buffer.getvalue())
+
+    def test_the_declared_version_is_the_one_that_gets_packaged(self):
+        """Duas fontes de versao divergem; esta prova que ha so uma.
+
+        `pyproject.toml` le o atributo do pacote, entao o numero publicado no
+        PyPI e o numero que a CLI imprime nao tem como discordar.
+        """
+        pyproject = (
+            Path(__file__).resolve().parents[1] / "pyproject.toml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            'version = {attr = "automacao_planilhas.__version__"}', pyproject
+        )
+        self.assertNotIn(f'version = "{__version__}"', pyproject)
 
 
 if __name__ == "__main__":

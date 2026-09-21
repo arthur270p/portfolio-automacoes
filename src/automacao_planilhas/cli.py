@@ -13,9 +13,10 @@ ninguém precisar interpretar texto:
 import argparse
 import os
 import traceback
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
+from . import __version__
 from .config import ConfigError, load_config
 from .readers import SourceInputError, read_sources
 from .report import build_summary, write_report
@@ -35,14 +36,27 @@ def build_parser() -> argparse.ArgumentParser:
         prog="automacao-planilhas",
         description="Consolida e valida arquivos CSV e Excel localmente.",
     )
+    parser.add_argument(
+        "--versao",
+        "--version",
+        action="version",
+        version=f"automacao-planilhas {__version__}",
+        help="Mostra a versão e encerra.",
+    )
     subcommands = parser.add_subparsers(dest="command", required=True)
 
     process = subcommands.add_parser(
         "processar", help="Consolida a pasta de entrada em um relatório Excel."
     )
-    process.add_argument("--entrada", type=Path, required=True, help="Pasta com CSV/XLSX.")
-    process.add_argument("--config", type=Path, required=True, help="Arquivo config.json.")
-    process.add_argument("--saida", type=Path, required=True, help="Relatório a gerar.")
+    process.add_argument(
+        "--entrada", type=Path, required=True, help="Pasta com CSV/XLSX."
+    )
+    process.add_argument(
+        "--config", type=Path, required=True, help="Arquivo config.json."
+    )
+    process.add_argument(
+        "--saida", type=Path, required=True, help="Relatório a gerar."
+    )
     process.add_argument(
         "--sobrescrever",
         action="store_true",
