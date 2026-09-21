@@ -165,6 +165,19 @@ class DocumentedExampleTests(unittest.TestCase):
             self.assertEqual(metrics["duplicidades"], 1)
             self.assertEqual(metrics["problemas_encontrados"], 3)
 
+    def test_the_readme_publishes_the_real_test_count(self):
+        """Numero que envelhece sozinho perde a credibilidade que gera.
+
+        O README vende a quantidade de testes. Acrescentar um caso sem tocar no
+        texto transformaria o argumento em exagero, e nada avisaria.
+        """
+        readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+        suite = unittest.defaultTestLoader.discover(
+            str(PROJECT_ROOT / "tests"), top_level_dir=str(PROJECT_ROOT)
+        )
+
+        self.assertIn(f"{suite.countTestCases()} testes", readme)
+
 
 class AliasAcceptanceTests(unittest.TestCase):
     def test_consolidates_files_that_disagree_on_the_column_name(self):

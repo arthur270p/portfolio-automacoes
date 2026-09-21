@@ -1,8 +1,31 @@
 # Automação de planilhas
 
+[![CI](https://github.com/arthur270p/portfolio-automacoes/actions/workflows/ci.yml/badge.svg)](https://github.com/arthur270p/portfolio-automacoes/actions/workflows/ci.yml)
+[![Licença: MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue.svg)](LICENSE)
+
 Junta vários arquivos CSV e Excel numa base única, separa o que está bom do que tem problema, e explica cada rejeição apontando o arquivo e a linha de origem.
 
 Roda inteiramente no seu computador. Sem servidor, sem nuvem, sem internet.
+
+## Avalie em dois minutos
+
+```bash
+git clone https://github.com/arthur270p/portfolio-automacoes.git
+cd portfolio-automacoes
+python -m pip install -e ".[dev]"
+python -m pytest          # 77 testes
+./executar-exemplo.sh     # no Windows: .\executar-exemplo.ps1
+```
+
+O relatório sai em `exemplos/saida/relatorio.xlsx`. Abra: cinco linhas entraram, duas passaram, três foram recusadas, e a aba `erros` diz o arquivo e a linha de cada uma.
+
+Se for olhar o código, três lugares mostram como as decisões foram tomadas:
+
+| arquivo | o que mostra |
+| --- | --- |
+| [`readers.py`](src/automacao_planilhas/readers.py) | por que a leitura de CSV não usa `pandas.read_csv` — dois modos de corromper dado em silêncio |
+| [`report.py`](src/automacao_planilhas/report.py) | por que texto iniciado por `=` é neutralizado, e por que só o `=` |
+| [`cli.py`](src/automacao_planilhas/cli.py) | como o relatório anterior sobrevive a uma falha no meio da escrita |
 
 ## O problema
 
@@ -15,6 +38,7 @@ Esta ferramenta reduz isso a um comando, e entrega um relatório que diz exatame
 - lê `.csv` e `.xlsx` de uma pasta, em ordem alfabética, sempre igual;
 - aceita CSV em UTF-8 (com ou sem BOM), separado por vírgula ou ponto e vírgula, e cai para Windows-1252 com aviso registrado;
 - padroniza os cabeçalhos: sem acento, sem espaço nas pontas, minúsculas, `snake_case`;
+- reconhece a mesma coluna com nomes diferentes entre arquivos, por apelido declarado;
 - guarda a procedência de cada linha em `origem_arquivo`, `origem_planilha` e `origem_linha`;
 - confere as colunas obrigatórias que você declarou;
 - acha repetições da chave que você definiu, mantendo a primeira ocorrência;
@@ -24,6 +48,8 @@ Esta ferramenta reduz isso a um comando, e entrega um relatório que diz exatame
 ## O que ela não faz
 
 Não abre arquivo protegido por senha, não executa nem preserva macros, não conversa com Google Drive nem com nenhuma API, não adivinha regra de negócio e não interpreta coluna que você não declarou. Lê apenas a **primeira aba** de cada arquivo Excel.
+
+A comparação de chave é exata: `JOAO@X.COM` e `joao@x.com` são tratados como registros diferentes. Se suas chaves variam em maiúsculas, padronize os dados antes.
 
 ## Instalação
 
@@ -35,24 +61,27 @@ python -m venv .venv
 python -m pip install -e .
 ```
 
+Depois disso, `automacao-planilhas` fica disponível como comando. Tudo aqui também funciona com `python -m automacao_planilhas`, sem instalar nada.
+
 ## Uso
 
 ```powershell
-python -m automacao_planilhas processar `
+automacao-planilhas processar `
   --entrada .\exemplos\entrada `
   --config .\exemplos\config.json `
   --saida .\exemplos\saida\relatorio.xlsx
 ```
 
-Um relatório que já existe **não** é substituído sem `--sobrescrever`. A opção `--debug` mostra o detalhe técnico quando algo inesperado acontece.
+Um relatório que já existe **não** é substituído sem `--sobrescrever`. A opção `--debug` mostra o detalhe técnico quando algo inesperado acontece, e `--versao` informa a versão instalada.
 
 ## Demonstração
 
 ```powershell
-.\executar-exemplo.ps1
+.\executar-exemplo.ps1     # Windows
+./executar-exemplo.sh      # Linux e macOS
 ```
 
-Os arquivos de `exemplos/entrada` têm cinco linhas fictícias, escolhidas para exercitar cada caminho: duas corretas, uma sem e-mail, uma com valor que não é número, e uma venda lançada duas vezes em arquivos diferentes.
+Os arquivos de `exemplos/entrada` têm cinco linhas fictícias, escolhidas para exercitar cada caminho: duas corretas, uma sem e-mail, uma com valor que não é número, e uma venda lançada duas vezes em arquivos diferentes. Os dois arquivos **discordam no nome da coluna de e-mail**, como acontece quando vêm de sistemas diferentes.
 
 O resumo do relatório sai assim:
 
@@ -87,6 +116,9 @@ A venda repetida aparece marcada no arquivo de **janeiro** porque os arquivos s�
     "email": "texto",
     "data": "data_br",
     "valor": "decimal_br"
+  },
+  "apelidos": {
+    "email": ["e_mail_do_cliente", "correio_eletronico"]
   }
 }
 ```
@@ -96,10 +128,21 @@ A venda repetida aparece marcada no arquivo de **janeiro** porque os arquivos s�
 | `colunas_obrigatorias` | linha sem algum desses campos vai para `erros` |
 | `chaves_duplicidade` | o conjunto que define "é o mesmo registro" |
 | `tipos` | só as colunas listadas são convertidas |
+| `apelidos` | opcional: outros nomes pelos quais a coluna pode aparecer |
 
 Tipos aceitos: `texto`, `inteiro`, `decimal_br` (`1.234,56`) e `data_br` (`dd/mm/aaaa`). Os nomes das colunas seguem o padrão já normalizado: minúsculas, sem acento, com `_` no lugar do espaço.
 
 A configuração é validada **antes** de qualquer arquivo ser lido. Nome de coluna fora do padrão, tipo desconhecido ou chave desconhecida interrompem a execução sem gerar relatório pela metade.
+
+### Apelidos de coluna
+
+Planilhas de origens diferentes raramente concordam no nome da coluna. Sem apelido, um arquivo que escreve `E-mail do Cliente` em vez de `email` seria recusado inteiro — e você voltaria a consolidar na mão, que é o trabalho que a ferramenta existe para eliminar.
+
+O apelido é escrito já normalizado, então uma única declaração de `e_mail_do_cliente` cobre `E-mail do Cliente`, `e-mail do cliente` e `E_Mail_Do_Cliente`.
+
+Quando um arquivo traz **dois candidatos** para a mesma coluna — o nome canônico e um apelido, ou dois apelidos — a origem é recusada com `APELIDO_AMBIGUO`, nomeando as duas colunas. A ferramenta não escolhe: escolher descartaria uma coluna inteira de dado real sem deixar rastro.
+
+Ambiguidade na própria configuração — um apelido apontando para duas colunas, ou um apelido que já é o nome de outra coluna — é barrada no carregamento, antes de qualquer arquivo ser aberto.
 
 ## As três abas
 
@@ -109,7 +152,33 @@ A configuração é validada **antes** de qualquer arquivo ser lido. Nome de col
 
 **`resumo`** — as sete métricas e uma linha por arquivo que gerou aviso ou foi recusado. Arquivo rejeitado aparece pelo nome, não só na contagem.
 
-## Códigos de saída
+## Códigos
+
+Todo problema sai identificado por um código estável, para poder ser filtrado no Excel ou tratado por script.
+
+**Por linha**, na aba `erros`:
+
+| código | quando aparece |
+| --- | --- |
+| `CAMPO_OBRIGATORIO_VAZIO` | coluna obrigatória em branco |
+| `REGISTRO_DUPLICADO` | repetição da chave; a primeira ocorrência fica |
+| `TIPO_TEXTO_INVALIDO` | valor não convertível para texto |
+| `TIPO_INTEIRO_INVALIDO` | valor não é inteiro |
+| `TIPO_DECIMAL_INVALIDO` | valor fora de `1.234,56` |
+| `TIPO_DATA_INVALIDO` | data fora de `dd/mm/aaaa` |
+
+**Por arquivo**, na aba `resumo`:
+
+| código | quando aparece |
+| --- | --- |
+| `ENCODING_CP1252` | aviso: o arquivo não era UTF-8 e foi lido como Windows-1252 |
+| `COLUNA_OBRIGATORIA_AUSENTE` | falta uma coluna declarada, e nenhum apelido dela aparece |
+| `APELIDO_AMBIGUO` | dois candidatos para a mesma coluna no mesmo arquivo |
+| `CABECALHO_COLISAO` | dois cabeçalhos viram o mesmo nome ao normalizar |
+| `COLUNA_RESERVADA` | o arquivo usa um nome de coluna de procedência |
+| `ARQUIVO_ILEGIVEL` | corrompido, protegido por senha ou não é o formato que a extensão diz |
+
+**Códigos de saída** do processo:
 
 | código | significado |
 | --- | --- |
@@ -123,20 +192,33 @@ A configuração é validada **antes** de qualquer arquivo ser lido. Nome de col
 
 Tudo acontece na sua máquina. Nenhum dado sai do computador, nenhuma credencial é pedida ou guardada, e a ferramenta não faz chamada de rede em nenhum momento.
 
+Isso não é só uma promessa do texto: um dos testes bloqueia a criação de qualquer socket e roda o fluxo inteiro. Se alguma dependência tentasse abrir conexão, a suíte quebraria.
+
 Os registros de execução trazem arquivo, planilha, linha e código do erro — nunca o conteúdo da linha.
 
 **Trabalhe sempre sobre uma cópia.** A ferramenta não altera os arquivos de entrada, mas a regra vale para qualquer processamento: o original fica intocado, em outro lugar.
 
 Os arquivos em `exemplos/` são fictícios. Dado real de cliente não entra neste repositório.
 
-## Testes
+## Testes e qualidade
 
 ```powershell
-python -m pytest
+python -m pytest        # 77 testes
+python -m ruff check .  # lint
 ```
+
+A CI roda os dois em Windows e Linux, no Python 3.12, 3.13 e 3.14, e executa a demonstração documentada acima — um portfólio que mostra uma demonstração quebrada é pior que um sem demonstração nenhuma.
+
+Os testes foram verificados por mutação: cada proteção do código foi removida, uma por vez, para confirmar que algum caso realmente quebra. Três testes passaram verdes sem testar nada e só foram descobertos assim.
+
+## Licença
+
+MIT. Veja [LICENSE](LICENSE).
 
 ## Sobre trabalhos sob medida
 
 Este repositório demonstra o método: leitura conservadora, procedência preservada, erro explicado e saída auditável. Ele não é uma solução universal.
 
 Cada projeto tem formato de entrada, regra de negócio e volume próprios. Escopo, prazo, revisões, manutenção e confidencialidade são combinados caso a caso, por escrito, antes de começar. O uso de ferramentas de IA no desenvolvimento é informado quando o cliente pergunta ou quando a plataforma exige, e qualquer restrição de sigilo do cliente tem precedência.
+
+Contato: [github.com/arthur270p](https://github.com/arthur270p)
