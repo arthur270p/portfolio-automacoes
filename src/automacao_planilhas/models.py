@@ -40,6 +40,15 @@ class RowProblem:
 
 @dataclass(frozen=True)
 class ValidationResult:
+    """Resultado da validação de um lote de linhas.
+
+    `problem_count` é o total de problemas encontrados, contando todos os de
+    uma mesma linha e incluindo as duplicidades. `duplicate_count` é o recorte
+    de duplicidades dentro desse total, não uma contagem à parte. Uma linha com
+    três problemas soma três, e é por isso que este número difere da quantidade
+    de linhas em `error_data`, que conta registros e não problemas.
+    """
+
     clean_data: pd.DataFrame
     error_data: pd.DataFrame
     problem_count: int
