@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "arthur270p", email = "vanderleidallacosta68@gmail.com" }]
+authors = [{ name = "arthur270p", email = "314006849+arthur270p@users.noreply.github.com" }]
 keywords = ["csv", "excel", "planilha", "validacao", "consolidacao"]
 classifiers = [
   "Development Status :: 4 - Beta",

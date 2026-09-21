@@ -808,10 +808,10 @@ Do not claim guaranteed savings, universal compatibility, or accounting advice.
 
 - [ ] **Step 4: Run the full verification**
 
-Use the bundled Python path for this machine:
+Use the project virtual environment:
 
 ```powershell
-$python = "C:\Users\User\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+$python = ".venv\Scripts\python.exe"
 $env:PYTHONPATH = "src"
 & $python -m unittest discover -s tests -v
 & .\executar-exemplo.ps1 -PythonExecutable $python
