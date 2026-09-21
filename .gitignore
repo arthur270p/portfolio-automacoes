@@ -1,9 +1,9 @@
-.worktrees/
-.venv/
-__pycache__/
-*.py[cod]
 *.egg-info/
+*.py[cod]
+*.tmp.xlsx
+.venv/
+.worktrees/
+__pycache__/
 build/
 dist/
 exemplos/saida/
-*.tmp.xlsx

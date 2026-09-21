@@ -34,7 +34,21 @@ def discover_sources(input_dir: Path) -> tuple[Path, ...]:
     return tuple(sorted(sources, key=lambda path: (path.name.casefold(), path.name)))
 
 
-def _read_csv(path: Path) -> tuple[pd.DataFrame, tuple[SourceIssue, ...]]:
+def _read_csv(path: Path) -> tuple[pd.DataFrame, tuple[SourceIssue, ...], tuple[int, ...]]:
+    """Lê um CSV preservando o texto original e a linha física de cada registro.
+
+    A leitura usa o módulo `csv` da biblioteca padrão, e não `pandas.read_csv`,
+    por duas razões que aparecem em dado real:
+
+    1. `read_csv` converte `NA`, `N/A`, `NULL`, `NaN` e mais uma dúzia de
+       strings em valor ausente. São valores legítimos — Namíbia, iniciais de
+       pessoa, código interno — e a conversão faria o validador rejeitar uma
+       linha que estava preenchida, em silêncio.
+    2. O índice do registro não é a linha do arquivo. Um campo entre aspas com
+       quebra de linha desloca todos os registros seguintes, e a promessa do
+       produto é apontar a linha original de cada rejeição. `reader.line_num`
+       acompanha a linha física de verdade.
+    """
     raw = path.read_bytes()
     issues: list[SourceIssue] = []
 
@@ -58,8 +72,33 @@ def _read_csv(path: Path) -> tuple[pd.DataFrame, tuple[SourceIssue, ...]]:
     except csv.Error:
         delimiter = ","
 
-    frame = pd.read_csv(StringIO(text), sep=delimiter, dtype=object)
-    return frame, tuple(issues)
+    # `newline=""` deixa a quebra de linha chegar intacta ao leitor de CSV, que
+    # é quem sabe distinguir fim de registro de quebra dentro de um campo.
+    reader = csv.reader(StringIO(text, newline=""), delimiter=delimiter)
+
+    try:
+        header = next(reader)
+    except StopIteration:
+        return pd.DataFrame(), tuple(issues), ()
+
+    width = len(header)
+    rows: list[list[str]] = []
+    line_numbers: list[int] = []
+    previous_line = reader.line_num
+
+    for record in reader:
+        if not record:
+            previous_line = reader.line_num
+            continue
+        # O registro começa na linha seguinte ao fim do anterior.
+        line_numbers.append(previous_line + 1)
+        # Campos finais vazios costumam ser omitidos; sobra de campo é arquivo
+        # malformado e fica de fora em vez de derrubar a leitura inteira.
+        rows.append((record + [""] * (width - len(record)))[:width])
+        previous_line = reader.line_num
+
+    frame = pd.DataFrame(rows, columns=header, dtype=object)
+    return frame, tuple(issues), tuple(line_numbers)
 
 
 def _read_xlsx(path: Path) -> tuple[pd.DataFrame, str]:
@@ -121,10 +160,13 @@ def read_sources(input_dir: Path, config: ProcessingConfig) -> ReadBatch:
     for path in sources:
         sheet_name = "CSV" if path.suffix.lower() == ".csv" else ""
         source_warnings: tuple[SourceIssue, ...] = ()
+        # Só o CSV precisa de rastreio próprio: no XLSX a linha da planilha é a
+        # linha do registro, sempre.
+        csv_line_numbers: tuple[int, ...] | None = None
 
         try:
             if path.suffix.lower() == ".csv":
-                frame, source_warnings = _read_csv(path)
+                frame, source_warnings, csv_line_numbers = _read_csv(path)
             else:
                 frame, sheet_name = _read_xlsx(path)
 
@@ -154,7 +196,11 @@ def read_sources(input_dir: Path, config: ProcessingConfig) -> ReadBatch:
         enriched = frame.copy(deep=True)
         enriched["origem_arquivo"] = path.name
         enriched["origem_planilha"] = sheet_name
-        enriched["origem_linha"] = range(2, len(enriched) + 2)
+        enriched["origem_linha"] = (
+            list(csv_line_numbers)
+            if csv_line_numbers is not None
+            else range(2, len(enriched) + 2)
+        )
         frames.append(enriched)
         processed += 1
 

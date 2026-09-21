@@ -153,3 +153,58 @@ class SourceReaderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CsvFidelityTests(unittest.TestCase):
+    """Dois casos em que o pandas, sozinho, corrompe o dado em silêncio."""
+
+    def config(self) -> ProcessingConfig:
+        return ProcessingConfig(("nome",), (), {})
+
+    def test_preserves_literal_text_that_pandas_treats_as_missing(self):
+        # "NA" e "NULL" sao valores legitimos: Namibia, iniciais, codigo interno.
+        # O read_csv padrao os converte em ausente, e o validador entao rejeita
+        # uma linha que estava preenchida.
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "paises.csv").write_text(
+                "nome,pais,codigo\nAna,NA,NULL\nBruno,BR,N/A\n",
+                encoding="utf-8",
+            )
+
+            data = read_sources(root, self.config()).data
+
+            self.assertEqual(list(data["pais"]), ["NA", "BR"])
+            self.assertEqual(list(data["codigo"]), ["NULL", "N/A"])
+            self.assertFalse(data[["pais", "codigo"]].isna().to_numpy().any())
+
+    def test_reports_the_true_physical_line_when_a_field_spans_lines(self):
+        # A promessa do produto e apontar a linha do arquivo original. Um campo
+        # entre aspas com quebra de linha desloca tudo dali para baixo.
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "obs.csv").write_text(
+                'nome,obs\n'
+                'Ana,"linha um\nlinha dois"\n'
+                'Bruno,ok\n',
+                encoding="utf-8",
+            )
+
+            data = read_sources(root, self.config()).data
+
+            self.assertEqual(list(data["nome"]), ["Ana", "Bruno"])
+            # Ana comeca na linha 2; Bruno esta na linha 4, nao na 3.
+            self.assertEqual(list(data["origem_linha"]), [2, 4])
+
+    def test_keeps_empty_cells_empty_without_inventing_text(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "vazios.csv").write_text(
+                "nome,pais\nAna,\nBruno,BR\n",
+                encoding="utf-8",
+            )
+
+            data = read_sources(root, self.config()).data
+
+            self.assertEqual(data.loc[0, "pais"], "")
+            self.assertEqual(data.loc[1, "pais"], "BR")
