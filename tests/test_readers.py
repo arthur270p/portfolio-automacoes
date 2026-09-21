@@ -208,3 +208,81 @@ class CsvFidelityTests(unittest.TestCase):
 
             self.assertEqual(data.loc[0, "pais"], "")
             self.assertEqual(data.loc[1, "pais"], "BR")
+
+
+class SourceAliasTests(unittest.TestCase):
+    """Leitura com apelido: renomear e o ponto onde se corrompe dado calado."""
+
+    def config(self) -> ProcessingConfig:
+        return ProcessingConfig(
+            ("nome", "email"),
+            (),
+            {},
+            {"email": ("e_mail_do_cliente", "correio")},
+        )
+
+    def test_accepts_a_source_that_names_the_column_by_an_alias(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "parceiro.csv").write_text(
+                "Nome;E-mail do Cliente\nAna;ana@example.com\n", encoding="utf-8"
+            )
+
+            batch = read_sources(root, self.config())
+
+            # O apelido e resolvido depois da normalizacao de cabecalho, entao
+            # "E-mail do Cliente" chega como `e_mail_do_cliente` e vira `email`.
+            self.assertEqual(batch.files_processed, 1)
+            self.assertEqual(batch.source_issues, ())
+            self.assertEqual(list(batch.data["email"]), ["ana@example.com"])
+            self.assertNotIn("e_mail_do_cliente", batch.data.columns)
+
+    def test_refuses_to_choose_when_the_column_and_its_alias_coexist(self):
+        # Duas colunas candidatas ao mesmo destino: escolher uma em silencio
+        # descartaria dado real sem deixar rastro. Recusar a origem e dizer
+        # qual e o conflito e a unica saida honesta.
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "ambiguo.csv").write_text(
+                "nome;email;e_mail_do_cliente\nAna;a@x.com;outro@x.com\n",
+                encoding="utf-8",
+            )
+
+            batch = read_sources(root, self.config())
+
+            self.assertEqual(batch.files_processed, 0)
+            self.assertEqual(len(batch.source_issues), 1)
+            issue = batch.source_issues[0]
+            self.assertEqual(issue.code, "APELIDO_AMBIGUO")
+            self.assertEqual(issue.file_name, "ambiguo.csv")
+            self.assertIn("email", issue.detail)
+            self.assertIn("e_mail_do_cliente", issue.detail)
+
+    def test_refuses_when_two_aliases_of_the_same_column_coexist(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "dois.csv").write_text(
+                "nome;e_mail_do_cliente;correio\nAna;a@x.com;b@x.com\n",
+                encoding="utf-8",
+            )
+
+            batch = read_sources(root, self.config())
+
+            self.assertEqual(batch.files_processed, 0)
+            self.assertEqual(batch.source_issues[0].code, "APELIDO_AMBIGUO")
+
+    def test_one_bad_source_does_not_stop_the_others(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "a_ambiguo.csv").write_text(
+                "nome;email;correio\nAna;a@x.com;b@x.com\n", encoding="utf-8"
+            )
+            (root / "b_bom.csv").write_text(
+                "nome;e_mail_do_cliente\nBruno;bruno@x.com\n", encoding="utf-8"
+            )
+
+            batch = read_sources(root, self.config())
+
+            self.assertEqual(batch.files_found, 2)
+            self.assertEqual(batch.files_processed, 1)
+            self.assertEqual(list(batch.data["email"]), ["bruno@x.com"])

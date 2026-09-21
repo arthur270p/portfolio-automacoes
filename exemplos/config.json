@@ -14,5 +14,10 @@
     "email": "texto",
     "data": "data_br",
     "valor": "decimal_br"
+  },
+  "apelidos": {
+    "email": [
+      "e_mail_do_cliente"
+    ]
   }
 }

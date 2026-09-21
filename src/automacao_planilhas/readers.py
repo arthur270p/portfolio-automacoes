@@ -5,19 +5,18 @@ from zipfile import BadZipFile
 
 import pandas as pd
 
-from .models import ProcessingConfig, ReadBatch, SourceIssue
+from .models import PROVENANCE_COLUMNS, ProcessingConfig, ReadBatch, SourceIssue
 from .normalizer import HeaderCollisionError, normalize_headers
 
 _SUPPORTED_SUFFIXES = {".csv", ".xlsx"}
-_PROVENANCE_COLUMNS = {
-    "origem_arquivo",
-    "origem_planilha",
-    "origem_linha",
-}
 
 
 class SourceInputError(ValueError):
     """A pasta de entrada não existe ou não pode ser usada."""
+
+
+class AliasConflictError(ValueError):
+    """A origem traz mais de um candidato para a mesma coluna canônica."""
 
 
 def discover_sources(input_dir: Path) -> tuple[Path, ...]:
@@ -103,6 +102,37 @@ def _read_csv(
     return frame, tuple(issues), tuple(line_numbers)
 
 
+def apply_aliases(frame: pd.DataFrame, config: ProcessingConfig) -> pd.DataFrame:
+    """Renomeia colunas apelidadas para o nome canônico.
+
+    Roda depois da normalização de cabeçalho, então o apelido é escrito no
+    mesmo padrão de todo o resto da configuração — `e_mail_do_cliente`, e não
+    `E-mail do Cliente`.
+
+    Quando a origem traz dois candidatos para a mesma coluna, a leitura para.
+    Escolher um deles descartaria uma coluna inteira de dado real sem deixar
+    rastro, e o produto todo se apoia em nunca perder dado em silêncio.
+    """
+    renames: dict[str, str] = {}
+
+    for canonical, aliases in config.column_aliases.items():
+        present = [alias for alias in aliases if alias in frame.columns]
+        if canonical in frame.columns and present:
+            raise AliasConflictError(
+                f"A origem tem {canonical!r} e também o apelido "
+                f"{present[0]!r}; não há como decidir qual vale."
+            )
+        if len(present) > 1:
+            raise AliasConflictError(
+                f"A origem tem mais de um apelido de {canonical!r}: "
+                f"{', '.join(repr(name) for name in present)}."
+            )
+        if present:
+            renames[present[0]] = canonical
+
+    return frame.rename(columns=renames) if renames else frame
+
+
 def _read_xlsx(path: Path) -> tuple[pd.DataFrame, str]:
     with pd.ExcelFile(path, engine="openpyxl") as workbook:
         if not workbook.sheet_names:
@@ -132,7 +162,7 @@ def _validate_source_columns(
     frame: pd.DataFrame,
     config: ProcessingConfig,
 ) -> SourceIssue | None:
-    reserved = sorted(_PROVENANCE_COLUMNS.intersection(frame.columns))
+    reserved = sorted(PROVENANCE_COLUMNS.intersection(frame.columns))
     if reserved:
         return _source_issue(
             path,
@@ -172,10 +202,15 @@ def read_sources(input_dir: Path, config: ProcessingConfig) -> ReadBatch:
             else:
                 frame, sheet_name = _read_xlsx(path)
 
-            frame = normalize_headers(frame)
+            frame = apply_aliases(normalize_headers(frame), config)
         except HeaderCollisionError as exc:
             issues.append(
                 _source_issue(path, sheet_name, "CABECALHO_COLISAO", str(exc))
+            )
+            continue
+        except AliasConflictError as exc:
+            issues.append(
+                _source_issue(path, sheet_name, "APELIDO_AMBIGUO", str(exc))
             )
             continue
         except (OSError, UnicodeError, ValueError, csv.Error, BadZipFile) as exc:

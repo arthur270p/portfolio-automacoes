@@ -1,8 +1,11 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Literal
 
 import pandas as pd
+
+PROVENANCE_COLUMNS = frozenset({"origem_arquivo", "origem_planilha", "origem_linha"})
 
 ColumnType = Literal["texto", "inteiro", "decimal_br", "data_br"]
 IssueLevel = Literal["aviso", "erro"]
@@ -13,6 +16,9 @@ class ProcessingConfig:
     required_columns: tuple[str, ...]
     duplicate_keys: tuple[str, ...]
     column_types: Mapping[str, ColumnType]
+    # Apelidos e opcional de proposito: toda configuracao escrita antes
+    # desta funcionalidade continua valida sem alteracao.
+    column_aliases: Mapping[str, tuple[str, ...]] = MappingProxyType({})
 
 
 @dataclass(frozen=True)

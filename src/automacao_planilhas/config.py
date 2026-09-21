@@ -4,9 +4,12 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import cast
 
-from .models import ColumnType, ProcessingConfig
+from .models import PROVENANCE_COLUMNS, ColumnType, ProcessingConfig
 
-_ALLOWED_KEYS = {"colunas_obrigatorias", "chaves_duplicidade", "tipos"}
+_REQUIRED_KEYS = {"colunas_obrigatorias", "chaves_duplicidade", "tipos"}
+# `apelidos` e opcional para nao invalidar nenhuma configuracao existente.
+_OPTIONAL_KEYS = {"apelidos"}
+_ALLOWED_KEYS = _REQUIRED_KEYS | _OPTIONAL_KEYS
 _ALLOWED_TYPES = {"texto", "inteiro", "decimal_br", "data_br"}
 _COLUMN_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -31,6 +34,68 @@ def _read_name_list(
     return tuple(value)
 
 
+def _read_aliases(
+    raw: dict[str, object], required: tuple[str, ...]
+) -> MappingProxyType[str, tuple[str, ...]]:
+    """Valida `apelidos`, recusando tudo que exigiria adivinhacao na leitura.
+
+    Um apelido renomeia a coluna de uma origem para o nome canonico. Toda
+    ambiguidade e barrada aqui, no carregamento, e nao durante a leitura dos
+    arquivos: um apelido que aponta para duas colunas, ou que ja e o nome de
+    outra coluna declarada, faria a ferramenta escolher em silencio e
+    sobrescrever dado real.
+    """
+    value = raw.get("apelidos", {})
+    if not isinstance(value, dict):
+        raise ConfigError(
+            "apelidos deve associar cada coluna a uma lista de nomes alternativos."
+        )
+
+    declared = set(required) | set(value)
+    aliases: dict[str, tuple[str, ...]] = {}
+    owner_of: dict[str, str] = {}
+
+    for column, names in value.items():
+        if not isinstance(column, str) or not _COLUMN_PATTERN.fullmatch(column):
+            raise ConfigError(
+                f"apelidos contém um nome de coluna fora de snake_case: {column!r}."
+            )
+        if column in PROVENANCE_COLUMNS:
+            raise ConfigError(
+                f"{column!r} é uma coluna reservada e não aceita apelidos."
+            )
+        if not isinstance(names, list) or any(
+            not isinstance(name, str) for name in names
+        ):
+            raise ConfigError(f"apelidos de {column!r} deve ser uma lista de nomes.")
+        if len(set(names)) != len(names):
+            raise ConfigError(f"apelidos de {column!r} contém nomes duplicados.")
+
+        for name in names:
+            if not _COLUMN_PATTERN.fullmatch(name):
+                raise ConfigError(
+                    f"apelidos contém um nome fora de snake_case: {name!r}."
+                )
+            if name in PROVENANCE_COLUMNS:
+                raise ConfigError(
+                    f"{name!r} é uma coluna reservada e não pode ser apelido."
+                )
+            if name in declared:
+                raise ConfigError(
+                    f"{name!r} já é uma coluna declarada e não pode ser apelido."
+                )
+            if name in owner_of:
+                raise ConfigError(
+                    f"o apelido {name!r} aponta para mais de uma coluna: "
+                    f"{owner_of[name]!r} e {column!r}."
+                )
+            owner_of[name] = column
+
+        aliases[column] = tuple(names)
+
+    return MappingProxyType(aliases)
+
+
 def load_config(path: Path) -> ProcessingConfig:
     try:
         raw_value = json.loads(path.read_text(encoding="utf-8-sig"))
@@ -42,7 +107,7 @@ def load_config(path: Path) -> ProcessingConfig:
 
     raw: dict[str, object] = raw_value
     unknown = set(raw) - _ALLOWED_KEYS
-    missing = _ALLOWED_KEYS - set(raw)
+    missing = _REQUIRED_KEYS - set(raw)
     if unknown or missing:
         raise ConfigError(
             f"Chaves inválidas. Ausentes: {sorted(missing)}; "
@@ -76,4 +141,5 @@ def load_config(path: Path) -> ProcessingConfig:
         required_columns=required,
         duplicate_keys=duplicate_keys,
         column_types=MappingProxyType(column_types),
+        column_aliases=_read_aliases(raw, required),
     )

@@ -166,5 +166,49 @@ class DocumentedExampleTests(unittest.TestCase):
             self.assertEqual(metrics["problemas_encontrados"], 3)
 
 
+class AliasAcceptanceTests(unittest.TestCase):
+    def test_consolidates_files_that_disagree_on_the_column_name(self):
+        """O caso que motiva a funcionalidade, de ponta a ponta.
+
+        Dois sistemas, dois nomes para a mesma coluna. Sem apelido, um dos
+        arquivos seria recusado inteiro e a consolidacao voltaria a ser manual.
+        """
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            input_dir = root / "entrada"
+            input_dir.mkdir()
+            (input_dir / "sistema_a.csv").write_text(
+                "nome,email\nAna,ana@exemplo.com.br\n", encoding="utf-8"
+            )
+            (input_dir / "sistema_b.csv").write_text(
+                "Nome;E-mail do Cliente\nBruno;bruno@exemplo.com.br\n",
+                encoding="utf-8",
+            )
+            config_path = root / "config.json"
+            config_path.write_text(
+                json.dumps({**CONFIG, "apelidos": {"email": ["e_mail_do_cliente"]}}),
+                encoding="utf-8",
+            )
+            output = root / "relatorio.xlsx"
+
+            code, _ = run(input_dir, output, config_path)
+            self.assertEqual(code, 0)
+
+            workbook = openpyxl.load_workbook(output)
+            try:
+                header = [cell.value for cell in workbook["dados_limpos"][1]]
+                rows = list(
+                    workbook["dados_limpos"].iter_rows(min_row=2, values_only=True)
+                )
+            finally:
+                workbook.close()
+
+            emails = {row[header.index("email")] for row in rows}
+            self.assertEqual(
+                emails, {"ana@exemplo.com.br", "bruno@exemplo.com.br"}
+            )
+
+
+
 if __name__ == "__main__":
     unittest.main()
