@@ -122,8 +122,8 @@ class MessageTests(unittest.TestCase):
 
 
 class DocumentedExampleTests(unittest.TestCase):
-    def test_the_bundled_example_matches_the_numbers_in_the_readme(self):
-        """Prende os números que o README publica.
+    def test_the_bundled_example_matches_what_the_readme_publishes(self):
+        """Prende os números e as linhas de erro que o README publica.
 
         Mexer nas fixtures sem atualizar o README passaria despercebido, e um
         portfólio que mostra um número e entrega outro perde a credibilidade
@@ -154,6 +154,14 @@ class DocumentedExampleTests(unittest.TestCase):
                     for row in workbook["resumo"].iter_rows(min_row=2, values_only=True)
                     if row[0] == "metrica"
                 }
+                errors = workbook["erros"]
+                header = [cell.value for cell in errors[1]]
+                reported = [
+                    (row[header.index("origem_linha")],
+                     row[header.index("origem_arquivo")],
+                     row[header.index("codigo_erro")])
+                    for row in errors.iter_rows(min_row=2, values_only=True)
+                ]
             finally:
                 workbook.close()
 
@@ -164,6 +172,18 @@ class DocumentedExampleTests(unittest.TestCase):
             self.assertEqual(metrics["registros_invalidos"], 3)
             self.assertEqual(metrics["duplicidades"], 1)
             self.assertEqual(metrics["problemas_encontrados"], 3)
+
+            # O README lista estas tres linhas nominalmente. A ordem importa:
+            # ela demonstra a leitura alfabetica, que e o que explica a
+            # duplicidade cair em janeiro e nao em fevereiro.
+            self.assertEqual(
+                reported,
+                [
+                    (2, "vendas_fevereiro.csv", "TIPO_DECIMAL_INVALIDO"),
+                    (2, "vendas_janeiro.csv", "REGISTRO_DUPLICADO"),
+                    (4, "vendas_janeiro.csv", "CAMPO_OBRIGATORIO_VAZIO"),
+                ],
+            )
 
     def test_the_readme_publishes_the_real_test_count(self):
         """Numero que envelhece sozinho perde a credibilidade que gera.
